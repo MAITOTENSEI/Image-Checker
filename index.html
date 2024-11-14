@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="//stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" crossorigin="anonymous" playsinline>
+
+  <!-- jQuery & Bootstrap JS -->
+  <script src="//code.jquery.com/jquery-3.3.1.slim.min.js" crossorigin="anonymous"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" crossorigin="anonymous"></script>
+  <script src="//stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" crossorigin="anonymous"></script>
+
+  <!-- Load TensorFlow.js -->
+  <script src="//cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.7.2/dist/tf.min.js"></script>
+  <!-- Load the coco-ssd model. -->
+  <script src="//cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.0.2/dist/coco-ssd.js"></script>
+
+  <style>
+    body {
+      text-align: left;
+    }
+
+    .img {
+      position: absolute;
+      z-index: 1;
+      max-width: 100%;
+      height: auto;
+    }
+
+    #main_container {
+      display: inline-block;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    #cv1 {
+      position: relative;
+      z-index: 20;
+    }
+
+    #top_div {
+      padding: 1em;
+    }
+
+    #loader_div {
+      display: inline-block;
+    }
+
+    #spinner_div {
+      display: inline-block;
+    }
+  </style>
+</head>
+
+<body>
+  <div>
+
+    <div id="top_div">
+      <H2>写真から物体認識</H2>
+      <div id="loader_div">
+        <p id="loader_info">Loading model...
+          <p />
+      </div>
+
+      <div id="spinner_div" class="spinner-border" role="status">
+        <span class="sr-only"></span>
+      </div>
+      <br></br>
+      <input id="input_btn" type='file' />
+    </div>
+    <br></br>
+    <div class="container" id="main_container">
+      <img class="img" id="img" width="640" width="360">
+      <canvas class="canvas" id="cv1"></canvas>
+    </div>
+  </div>
+  <script type="text/javascript">
+    var img;
+    var c = document.getElementById("cv1");
+    var ctx = c.getContext("2d");
+    var img = document.getElementById('img');
+    var isModelLoaded = false;
+    var globalModel = null;
+    //Load the model.
+    cocoSsd.load().then(model => {
+      isModelLoaded = true;
+      updateTitle();
+      if (document.getElementById("img").src != "") {
+        startPredictions(model, img);
+      }
+    });
+
+    function startPredictions(model, img) {
+      model.detect(img).then(predictions => {
+        predictions.map((item, index) => {
+          console.log(item);
+          let borderColor = getColorByIndex(index);
+          draw(item, borderColor);
+        });
+      });
+    }
+
+    function resizeCanvas(element) {
+      var w = element.offsetWidth;
+      var h = element.offsetHeight;
+      var cv = document.getElementById("cv1");
+      cv.width = w;
+      cv.height = h;
+    }
+
+    function draw(item, boderColor) {
+      let scorePercentage = (parseFloat(item.score) * 100).toFixed(2);
+      let fontBase = 1000;
+      let fontSize = 12;
+      let textColor = "#FF0000";
+      let backgroundColor = "rgba(255, 255, 255, 0.7)"; //"#fff";
+      ctx.beginPath();
+      ctx.rect(item.bbox[0], item.bbox[1], item.bbox[2], fontSize + 5);
+      ctx.fillStyle = backgroundColor;
+      ctx.fill();
+      ctx.font = `bold ${fontSize}px sans-serif`;
+      ctx.fillStyle = textColor;
+      ctx.fillText("  " + item.class + "  " + scorePercentage + "%", item.bbox[0], item.bbox[1] + fontSize);
+      ctx.rect(item.bbox[0], item.bbox[1], item.bbox[2], item.bbox[3]);
+      ctx.strokeStyle = boderColor;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+
+    function getColorByIndex(index) {
+      var color = "#FF0000";
+      var colors = ["#FF0000", "#fff000", "#ff7100", "#8fff00", "#7100ff", "#f000ff", "#00fff0"];
+      try {
+        if (index < colors.length - 1) {
+          color = colors[index];
+        } else {
+          let random = Math.floor(Math.random() * ((colors.length - 1) + 1));
+          color = colors[random];
+        }
+      } catch (e) {
+        console.log(e);
+      }
+      return color;
+    }
+    //Image loading 
+    window.addEventListener('load', function() {
+      document.querySelector('input[type="file"]').addEventListener('change', function() {
+        if (this.files && this.files[0]) {
+          var img = document.querySelector('img');
+          img.src = URL.createObjectURL(this.files[0]);
+          img.onload = imageIsLoaded;
+        }
+      });
+    });
+
+    function imageIsLoaded() {
+      resizeCanvas(img);
+      cocoSsd.load().then(model => {
+        if (isModelLoaded) {
+          startPredictions(model, img);
+        }
+      });
+    }
+
+    function updateTitle() {
+      var title = document.getElementById("loader_info");
+      title.textContent = "Model loaded successfully";
+      var element = document.getElementById("spinner_div");
+      element.classList.remove("spinner-border");
+    }
+
+    function getFont(canvas, fontSize, fontBase) {
+      var ratio = fontSize / fontBase;
+      var size = canvas.width * ratio;
+      return (size | 0) + 'px bold sans-serif';
+    }
+  </script>
+</body>
+
+</html>
